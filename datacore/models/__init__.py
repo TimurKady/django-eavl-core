@@ -1,5 +1,5 @@
-from .schema import Schema
-from .abstract import Entity
+from .schema import SchemesCatalog, Schema
+from .abstract import Entity, EntityCategories
 
 
-__all__ = ['Schema', 'Entity']
+__all__ = ['SchemesCatalog', 'Schema', 'Entity', 'EntityCategories']

@@ -20,6 +20,7 @@ FIELD_TYPES = Choices(
     (15, 'timedelta', _('TimeDelta – Field containing time span values')),
     (16, 'URL', _('URL – An URL field')),
     (17, 'UUID', _('UUID – A UUID field')),
+    (18, 'relationship', _('Relationship - A field points to another entities')),
 )
 
 UNIQUE_SET = Choices(
