@@ -159,6 +159,8 @@ class Schema(TreeNodeModel):
 
     schema_type = models.ForeignKey(
         SchemesCatalog,
+        null=True, # <-- может быть задана только у корневой схемы
+        blunk=True,
         related_name='schemas',
         on_delete=models.CASCADE
     )
