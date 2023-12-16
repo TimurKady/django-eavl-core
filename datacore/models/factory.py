@@ -239,6 +239,6 @@ class CoreFactory(models.base.ModelBase):
         )
 
         # Create Values Model
-        value_model = type(model_name, (models.Model,), fields)
+        value_model = type(model_name, (BaseValueModel,), fields)
 
         return value_model
