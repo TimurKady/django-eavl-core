@@ -12,6 +12,7 @@ from .factory import CoreFactory
 from .schema import Schema
 from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.translation import gettext_lazy as _
+from django.db import connection
 
 
 class EntityCategories(TreeNodeModel):
@@ -131,3 +132,109 @@ class Entity(with_metaclass(CoreFactory, models.Model)):
             str: The UUID of the entity as a string.
         """
         return str(self.uuid)
+
+    def get_attribute_names(self, all=False):
+        """
+        Returns a list of attribute names for this entity.
+
+        Parameters:
+        all (bool): If True, returns all attribute names from related schemas.
+                    If False, returns only those attributes that have values.
+        """
+        attribute_names = set()
+
+        if all:
+            # Get all attribute names from related schemas
+            for schema in self.entity_type.schemas.all():
+                for attribute in schema.attribute_model.all():  # Replace with the correct related name
+                    attribute_names.add(attribute.name)
+        else:
+            # Get attribute names that have values
+            for value in self.values.all():
+                attribute_names.add(value.attribute.name)
+
+        return list(attribute_names)
+
+    def get_value(self, attribute_name, start_date=None, end_date=None):
+        """
+        Returns the value(s) of a given attribute for this entity.
+
+        Parameters:
+        attribute_name (str): The name of the attribute.
+        start_date (datetime, optional): The start date for filtering the time 
+        series.
+        end_date (datetime, optional): The end date for filtering the time 
+        series.
+        """
+        # Find the attribute model through the related schemas
+        for schema in self.entity_type.schemas.all():
+            if schema.name == attribute_name:
+                # Assuming this is the reverse relation to the attribute model
+                attribute = schema.attribute_model
+                break
+        else:
+            return None  # Attribute not found
+
+        # Filter values by date if provided
+        values_queryset = self.values.filter(attribute=attribute)
+        if start_date or end_date:
+            values_queryset = values_queryset.filter(
+                timestamp__gte=start_date, timestamp__lte=end_date)
+
+        # Return the most recent value or all values within the date range
+        return values_queryset.order_by('-timestamp').first().value if not start_date and not end_date else values_queryset.values_list('value', flat=True)
+
+    def set_value(self, attribute_name, value, timestamp=None):
+        """
+        Sets the value of a given attribute for this entity.
+
+        Parameters:
+        attribute_name (str): The name of the attribute.
+        value: The value to set for the attribute.
+        timestamp (datetime, optional): The timestamp for the value, required 
+        for time series attributes.
+        """
+        # Find the attribute model through the related schemas
+        for schema in self.entity_type.schemas.all():
+            if schema.name == attribute_name:
+                # Assuming this is the reverse relation to the attribute model
+                attribute = schema.attribute_model
+                break
+        else:
+            return  # Attribute not found
+
+        # Create a new value in the Values model
+        self.values.create(attribute=attribute,
+                           value=value, timestamp=timestamp)
+
+    def delete(self, *args, **kwargs):
+        """
+        Overrides the delete method to clean up relationships in the Values model.
+
+        When an Entity instance is deleted, this method is called to ensure that
+        any references to this Entity in the Values model's 'relationship' 
+        field are removed.
+        This maintains data integrity by preventing orphaned references.
+
+        It uses a raw SQL query to efficiently remove the Entity's ID from the 
+        'relationship' field in all Values instances where it appears.
+        """
+
+        # Get the unique identifier of the current Entity instance
+        entity_id = self.id
+
+        # Execute a raw SQL query to update the 'relationship' field in the Values model
+        # The query removes the Entity's ID from the 'relationship' field
+        # in all instances where it is present.
+        with connection.cursor() as cursor:
+            cursor.execute(f"""
+                UPDATE {self._meta.app_label}_{self._meta.object_name.lower()}values
+                SET relationship = array_remove(relationship, %s)
+                WHERE %s = ANY(relationship);
+            """, [entity_id, entity_id])
+
+        # Call the original delete method to complete the deletion of the Entity
+        super().delete(*args, **kwargs)
+
+
+# The ENd

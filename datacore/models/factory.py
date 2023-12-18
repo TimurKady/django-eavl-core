@@ -218,11 +218,13 @@ class CoreFactory(models.base.ModelBase):
             entity=models.ForeignKey(
                 cls,
                 on_delete=models.CASCADE,
+                related_name='values',
                 verbose_name=_('Entity'),
             ),
 
             attribute=models.ForeignKey(
                 attribute_model,
+                related_name='values',
                 on_delete=models.CASCADE,
                 verbose_name=_('Attribute'),
             ),

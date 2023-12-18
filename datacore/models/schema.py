@@ -47,7 +47,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.translation import gettext_lazy as _
 
 
-class SchemesCatalog(models.Models):
+class SchemesCatalog(models.Model):
     """
     Model for organizing data schemas into categories or topics.
 
@@ -159,8 +159,8 @@ class Schema(TreeNodeModel):
 
     schema_type = models.ForeignKey(
         SchemesCatalog,
-        null=True, # <-- может быть задана только у корневой схемы
-        blunk=True,
+        null=True,  # <-- может быть задана только у корневой схемы
+        blank=True,
         related_name='schemas',
         on_delete=models.CASCADE
     )
