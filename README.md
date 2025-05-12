@@ -1,3 +1,8 @@
+> ⚠️ This project is in an early experimental stage.  
+> It is under active development and may change at any time.  
+> Nothing is guaranteed to work as expected — use at your own risk.
+
+
 # Django Datacore
 EAVL data model for Django
 
