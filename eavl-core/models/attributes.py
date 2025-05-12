@@ -215,5 +215,12 @@ class AbstractAttributeModel(models.Model):
 
         return obj, created
 
+    def save(self, *args, **kwargs):
+        """Save instance."""
+        if self.is_relation and self.destination is None:
+            raise AttributeError(
+                "The `destination` field must be specified for link-attributes."
+            )
+        super().save()
 
 # The End

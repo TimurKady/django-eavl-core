@@ -24,12 +24,19 @@ from marshmallow import Schema
 class SchemaModel(models.Model):
     """SchemaModel class."""
 
-    name = models.CharField(
+    title = models.CharField(
         max_length=255,
         null=False,
         blank=False,
-        unique=True,
+        verbose_name=_('schema/attribute title'),
+    )
+
+    name = models.SlugField(
+        max_length=32,
+        null=False,
+        blank=False,
         verbose_name=_('schema name'),
+        help_text=_('Internal short label for schema, containing only letters, numbers, underscores or hyphens'),  # noqa: D501
     )
 
     schema = models.JSONField(
@@ -48,10 +55,11 @@ class SchemaModel(models.Model):
         """Meta options for SchemaModel."""
 
         ordering = ["name"]
+        unique_together = [["name", "version"]]
 
     def __str__(self):
         """Return a readable representation of the attribute."""
-        return self.name
+        return f"{self.name} ({self.version})"
 
     def get_schema(self):
         """Return marshmellow schema."""

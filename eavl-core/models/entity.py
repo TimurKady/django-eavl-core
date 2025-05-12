@@ -15,13 +15,12 @@ Email: timurkady@yandex.com
 import uuid
 from django.db import models
 from django.db.models import QuerySet
-from treenode.models import TreeNodeModel
 from django.utils.translation import gettext_lazy as _
 
 from .objects import WrapObject
 
 
-class AbstractEntityModel(TreeNodeModel):
+class AbstractEntityModel(models.Model):
     """Base abstract model for entities."""
 
     entity_class = models.BigIntegerField()
@@ -43,49 +42,14 @@ class AbstractEntityModel(TreeNodeModel):
         help_text=_('Universally Unique Identifier for this entity.'),
     )
 
-    display_field = "title"
-    sorting_field = "title"
-
-    class Meta(TreeNodeModel.Meta):
+    class Meta:
         """Meta class."""
 
         abstract = True
 
     # == 1. Base methods ==
 
-    @classmethod
-    def create_entity(cls, **kwards):
-        """Create a new entity instance."""
-        entity_class = kwards.get("entity_class", None)
-
-        # Create base object
-        fields = {
-            "entity_class": entity_class,
-            "parent": kwards.get("parent", None),
-            "title": kwards.get("title", None),
-        }
-
-        entity = cls(**fields)
-        entity.save()
-
-        # Inherited attrutes installation.
-        attributes = entity.get_attributes()
-        for attr in attributes:
-            schema = attr.schema or {}
-
-            entity.attributes._meta.objects.create(
-                entity=entity,
-                title=schema.get("title", None),
-                code=attr.code,
-                is_multiple=schema.get("many"),
-                is_relation=schema.get("type") == "link",
-            )
-
-            default = schema.get("default", None)
-            if default is not None:
-                attr.set_value(default)
-
-    def get_data(self, *, include_inherited=True, last_only=True,
+    def get_data(self, *, last_only=True,
                  from_date=None, to_date=None) -> dict:
         """
         Return object data.
@@ -98,10 +62,7 @@ class AbstractEntityModel(TreeNodeModel):
         - last_only: for timeseries only, return only the latest value(s)
         - from_date, to_date: filter values by timestamp range (for timeseries)
         """
-        attributes = (
-            self.get_attributes()
-            if include_inherited else self.attributes.all()
-        )
+        attributes = self.attributes.all()
 
         data = {
             "type": str(getattr(self.entity_class, "uuid", self.entity_class)),
@@ -201,7 +162,7 @@ class AbstractEntityModel(TreeNodeModel):
         """
         super().clean_fields(exclude)
 
-    def create_wrap(self, data: dict) -> object:
+    def create_wrap(self) -> object:
         """
         Create an object from EAVL.
 
@@ -221,44 +182,61 @@ class AbstractEntityModel(TreeNodeModel):
         # TODO: recursively destroy descendants?
         self.delete()
 
-    def get_attributes(self) -> list:
-        """
-        Get effective attributes.
-
-        Get a list of all applicable attributes, including inherited ones.
-        """
-        all_attrs = []
-        for node in reversed(self.get_ancestors(include_self=True)):
-            for attr in node.attributes.all():
-                all_attrs.append((attr.code, attr))
-
-        seen = {}
-        for code, attr in all_attrs:
-            if code not in seen:
-                seen[code] = attr
-
-        return list(seen.values())[::-1]
-
     # == 2. Methods of working with links ==
 
     def get_outgoing_links(self, code: str = None) -> list:
         """Get a list of entities referenced by this object."""
-        pass
+        queryset = self.attributes.model.objects\
+            .filter(entity=self, is_relation=True)
+        return queryset.value_list("destination", flat=True)
 
     def get_incoming_links(self, code: str = None) -> list:
         """Return a list of entities that reference this object."""
-        pass
+        queryset = self.attributes.model.objects\
+            .filter(is_relation=True, destination=self)
+        return list([a.sourse for a in queryset])
 
     def has_direct_link_to(self, other: object, code: str = None) -> bool:
         """Check if there is a direct connection to another object."""
-        pass
+        links = self.get_outgoing_links()
+        return other in links
 
-    def is_connected_to(self, other: object, max_depth: int = 3) -> bool:
-        """Check whether objects are connected by a path (up to max_depth)."""
-        pass
+    def is_connected_to(self, target, *, max_depth=6, visited=None):
+        """
+        Check if self is connected to target entity.
 
-    def get_graph_subtree(self, depth: int = 1,
-                          link_codes: list = None,
+        DFS via a chain of relational attributes with a max_depth constraint.
+        Parameters:
+        - target: target entity instance
+        - max_depth: maximum search depth (default: 6)
+        - visited: set of already visited entities (for recursion)
+
+        Returns:
+        - True if a path exists from self to target via linked entities
+        - False otherwise
+        """
+        visited = set()
+        stack = [(self, 0)]  # (entity, current_depth)
+
+        while stack:
+            current, depth = stack.pop()
+
+            if current.pk == target.pk:
+                return True
+
+            if current.pk in visited or depth >= max_depth:
+                continue
+
+            visited.add(current.pk)
+
+            for attr in current.attributes.filter(is_relation=True):
+                dest = attr.destination
+                if dest and dest.pk not in visited:
+                    stack.append((dest, depth + 1))
+
+        return False
+
+    def get_graph_subtree(self, depth: int = 1, link_codes: list = None,
                           entity_types: list = None) -> dict:
         """
         Get graph subtree.
@@ -302,24 +280,81 @@ class AbstractEntityModel(TreeNodeModel):
 
         Quick search by UUID.
         """
-        pass
+        return cls.objects.filter(uuid=uuid).first()
 
     def find_link_path_to(self, target: object, *,
                           allowed_entity_types: set[str] = None,
                           allowed_link_codes: set[str] = None,
-                          mode='first',  # mode='first' | 'all'
+                          mode: str = 'first',
                           max_depth: int = 6,
-                          return_objects=True) -> list:
+                          return_objects: bool = True) -> list | None:
         """
-        Find a path through all links.
+        Find a path through link-attributes tothe target entity.
 
-        allowed_entity_types: limits search by entity types;
-        allowed_link_codes: limits the types of relationships;
-        max_depth: search depth (limited to 6 nodes by default)
+        :param target: Target entity to search path to.
+        :param allowed_entity_types: Limit traversal to certain entity class
+            IDs (or UUIDs).
+        :param allowed_link_codes: Limit traversal to certain attribute codes.
+        :param mode: 'first' to stop at first found path, 'all' to find all
+            paths.
+        :param max_depth: Maximum depth of search.
+        :param return_objects: Whether to return actual entity objects or their
+            UUIDs.
+        :return: List of entity path (from self to target), or None if
+            not found.
 
-        Returns a list of entities (path), or None if the path is not found.
+        Examples:
+        entity.find_link_path_to(target, max_depth=5)
+        entity.find_link_path_to(target, allowed_link_codes={"parent", "child"})
+        entity.find_link_path_to(
+            target,
+            allowed_entity_types={"product", "department"},
+            return_objects=False
+        )
+
         """
-        pass
+        from collections import deque
+
+        visited = set()
+        stack = deque()
+        paths = []
+
+        # Each stack item: (current_entity, path_so_far)
+        stack.append((self, [self]))
+
+        while stack:
+            current, path = stack.pop()
+
+            if current.pk == target.pk:
+                result_path = path if return_objects else [e.uuid for e in path]
+                if mode == 'first':
+                    return result_path
+                else:
+                    paths.append(result_path)
+                    continue
+
+            if current.pk in visited or len(path) > max_depth:
+                continue
+            visited.add(current.pk)
+
+            rel_attrs = current.attributes.filter(
+                is_relation=True).exclude(destination=None)
+
+            for attr in rel_attrs:
+                if allowed_link_codes and attr.code not in allowed_link_codes:
+                    continue
+                dest = attr.destination
+                if not dest:
+                    continue
+                if allowed_entity_types:
+                    type_id = getattr(dest.entity_class,
+                                      'uuid', dest.entity_class)
+                    if type_id not in allowed_entity_types:
+                        continue
+                if dest.pk not in visited:
+                    stack.append((dest, path + [dest]))
+
+        return paths if mode == 'all' else None
 
 
 # The End

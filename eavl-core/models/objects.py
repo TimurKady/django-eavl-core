@@ -66,12 +66,12 @@ class WrapObject:
         for key in dictionary:
             value = dictionary[key]
             if isinstance(value, dict):
-                setattr(self, key, WrapObject(value, self.entity))
+                setattr(self, key, SubObject(value, self.entity))
             elif isinstance(value, list):
                 new_list = []
                 for item in value:
                     if isinstance(item, dict):
-                        new_list.append(WrapObject(item, self.entity))
+                        new_list.append(SubObject(item, self.entity))
                     else:
                         new_list.append(item)
                 setattr(self, key, new_list)
@@ -105,12 +105,12 @@ class WrapObject:
         """
         result = {}
         for key, value in vars(self).items():
-            if isinstance(value, WrapObject):
+            if isinstance(value, SubObject):
                 result[key] = value.to_dict()
             elif isinstance(value, list):
                 new_list = []
                 for item in value:
-                    if isinstance(item, WrapObject):
+                    if isinstance(item, SubObject):
                         new_list.append(item.to_dict())
                     else:
                         new_list.append(item)
@@ -142,3 +142,16 @@ class WrapObject:
         """Return string representation of the object."""
         attrs = vars(self)
         return f"{self.__class__.__name__}({attrs})"
+
+
+class SubObject(WrapObject):
+    """
+    Lightweight subobject used for nested dictionary deserialization.
+
+    Does not call entity.get_data() again.
+    """
+
+    def __init__(self, data: dict, entity: object):
+        """Init object."""
+        self.entity = entity
+        self.dict_to_attributes(data)
