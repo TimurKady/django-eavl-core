@@ -121,6 +121,7 @@ class EntityFactoryMeta(models.Model):
             "__module__": cls.__module__,
         }
         value_meta = type('Meta', (), {
+            "indexes": [models.Index(fields=["timestamp"])],
             "verbose_name": _(f"{label} value"),
             "verbose_name_plural": _(f"{label} values"),
         })

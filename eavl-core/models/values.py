@@ -2,19 +2,15 @@
 """
 Abstract Value Model.
 
-Version: 0.0.0
+Version: 0.0.1
 Author: Timur Kady
 Email: timurkady@yandex.com
 """
 
 
-import json
-import requests
 from django.db import models
-from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.translation import gettext_lazy as _
-from marshmallow import Schema
 
 
 class AbstractValueModel(models.Model):
@@ -43,18 +39,6 @@ class AbstractValueModel(models.Model):
     def __str__(self):
         """Represent object by string."""
         return f"{str(self.value)} ({self.timestamp})"
-
-    def clean_fields(self, exclude=None):
-        """Validate all fields on value model."""
-        schema_dict = self.attribute.schema
-        is_url = "$ref" in schema_dict.keys()
-        if is_url:
-            url = schema_dict["$ref"]
-            schema_dict = requests.get(url).json()
-        schema = Schema.from_dict(schema_dict)
-        errors = schema.validate(self.value)
-        if errors:
-            raise ValidationError(errors)
 
     def delete(self):
         """Delete instance."""
