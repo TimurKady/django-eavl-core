@@ -8,7 +8,7 @@ EAVL data model for Django
 
 # Introduction to EAVL
 
-EAVL (Entity-Attribute-Value List) is a data organization methodology that allows for flexible and efficient management of diverse types of information. The fundamental idea behind EAVL is to create a data structure capable of storing various attributes for entities in a system without the need to define them all in advance.
+EAVL (Entity-Attribute-Value-Link) is a data organization methodology that allows for flexible and efficient management of diverse types of information. The fundamental idea behind EAVL is to create a data structure capable of storing various attributes for entities in a system without the need to define them all in advance.
 
 ## Key Concepts of EAVL
 
