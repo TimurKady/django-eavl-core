@@ -32,7 +32,11 @@ class AbstractValueModel(models.Model):
         """Meta class."""
 
         abstract = True
-        indexes = [models.Index(fields=["entity", "attribute"]),]
+        indexes = [
+            models.Index(fields=["timestamp"]),
+            models.Index(fields=["entity", "attribute"]),
+            models.Index(fields=["entity", "attribute", "timestamp"]),
+        ]
         order_with_respect_to = "attribute"
         ordering = ["-timestamp"]
 

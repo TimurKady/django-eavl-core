@@ -1,0 +1,13 @@
+
+#class-selector{
+    margin-bottom: 10px !important;
+}
+
+.entity-class-selector {
+  padding: 8px 10px;
+  margin-bottom: 0;
+  border-top: 1px solid var(--hairline-color);
+  border-bottom: 1px solid var(--hairline-color);
+  background: var(--darkened-bg);
+  color: var(--body-quiet-color);
+}

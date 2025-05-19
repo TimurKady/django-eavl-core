@@ -124,7 +124,7 @@ class WrapObject:
         data = self.to_dict()
         self.entity.validate(data)
 
-    def save(self):
+    def save(self, *args, **kwargs):
         """
         Persist object changes to underlying entity.
 

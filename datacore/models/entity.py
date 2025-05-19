@@ -62,7 +62,7 @@ class AbstractEntityModel(models.Model):
         - last_only: for timeseries only, return only the latest value(s)
         - from_date, to_date: filter values by timestamp range (for timeseries)
         """
-        attributes = self.attributes.all()
+        attributes = self.attributes.filter(deleted=False)
 
         data = {
             "type": str(getattr(self.entity_class, "uuid", self.entity_class)),
@@ -87,12 +87,13 @@ class AbstractEntityModel(models.Model):
         links = []
 
         for node in reversed(self.get_ancestors(include_self=True)):
-            props_list = node.attributes.filter(is_relation=False)
+            props_list = node.attributes.filter(is_relation=False, deleted=False)  # noqa: D501
             for prop in props_list:
                 properties.append(prop.to_dict(include_values))
 
             if include_links:
-                links_list = node.attributes.filter(is_relation=True)
+                links_list = node.attributes.filter(is_relation=True, deleted=False)  # noqa: D501
+
                 for link in links_list:
                     links.append(link.to_dict(include_values))
 
@@ -122,9 +123,11 @@ class AbstractEntityModel(models.Model):
 
         attributes = data.get("attributes", {})
         for field, value in attributes.items():
-            attr = self.attributes.filter(code=field).first()
+            attr = self.attributes.filter(code=field, deleted=False).first()
             if attr:
                 attr.set_value(value)
+
+    # == 2. Clean and validation ==
 
     def validate(self, data: dict = None, exclude: set = None) -> list:
         """
@@ -140,7 +143,7 @@ class AbstractEntityModel(models.Model):
         attributes = data.get("attributes", {})
         for field, value in attributes.items():
             if field not in exclude:
-                attr = self.attributes.filter(code=field).first()
+                attr = self.attributes.filter(code=field, deleted=False).first()
                 if attr:
                     schema = attr.get_schema()
                     result = schema.validate(value)
@@ -162,6 +165,8 @@ class AbstractEntityModel(models.Model):
         """
         super().clean_fields(exclude)
 
+    # == 3 Wrap methods ==
+
     def create_wrap(self) -> object:
         """
         Create an object from EAVL.
@@ -182,18 +187,18 @@ class AbstractEntityModel(models.Model):
         # TODO: recursively destroy descendants?
         self.delete()
 
-    # == 2. Methods of working with links ==
+    # == 4. Methods of working with links ==
 
     def get_outgoing_links(self, code: str = None) -> list:
         """Get a list of entities referenced by this object."""
         queryset = self.attributes.model.objects\
-            .filter(entity=self, is_relation=True)
+            .filter(entity=self, is_relation=True, deleted=False)
         return queryset.value_list("destination", flat=True)
 
     def get_incoming_links(self, code: str = None) -> list:
         """Return a list of entities that reference this object."""
         queryset = self.attributes.model.objects\
-            .filter(is_relation=True, destination=self)
+            .filter(is_relation=True, destination=self, deleted=False)
         return list([a.sourse for a in queryset])
 
     def has_direct_link_to(self, other: object, code: str = None) -> bool:
@@ -241,37 +246,111 @@ class AbstractEntityModel(models.Model):
         """
         Get graph subtree.
 
-        Returns a subgraph in the form:
-        {
-            entity_id: {
-                "entity": <Entity>,
-                "links": [<entity_id>, ...]
-            },
-            ...
-        }
-        """
-        pass
+        Returns a semantic subgraph rooted at this entity,
+        traversing relation-attributes (is_relation=True) up to a given depth.
 
-    # == 3. Methods of objects searching and filtering ==
+        :param depth: Max search depth.
+        :param link_codes: Optional list of attribute codes to follow.
+        :param entity_types: Optional list of allowed entity_class UUIDs.
+        :return: Dict with structure
+            {
+                entity_id: {
+                    "entity": Entity,
+                    "links": [entity_id, ...]
+                },
+                ...
+            }
+        """
+        from collections import deque
+
+        graph = {}
+        visited = set()
+        stack = deque()
+        stack.append((self, 0))
+
+        while stack:
+            current, d = stack.pop()
+            if current.pk in visited or d > depth:
+                continue
+
+            visited.add(current.pk)
+            links = []
+
+            for attr in current.attributes.filter(is_relation=True):
+                if link_codes and attr.code not in link_codes:
+                    continue
+
+                dest = attr.destination
+                if not dest or dest.pk in visited:
+                    continue
+
+                if entity_types:
+                    etype = getattr(dest.entity_class, "uuid",
+                                    dest.entity_class_id)
+                    if etype not in entity_types:
+                        continue
+
+                links.append(dest.pk)
+                stack.append((dest, d + 1))
+
+            graph[current.pk] = {
+                "entity": current,
+                "links": links
+            }
+
+        return graph
+
+    # == 5. Methods of objects searching and filtering ==
 
     @classmethod
     def search_by_attribute(cls, code: str, value: any) -> QuerySet:
         """
         Search by attribute value.
 
-        Find all objects that have a value for a given attribute.
+        Find all objects of this class that have the specified value
+        for the attribute with the given code.
+
+        :param code: Attribute code.
+        :param value: Value to search for.
+        :return: QuerySet of matching entities.
         """
-        pass
+        attr_model = cls.attributes.model
+
+        attr_qs = attr_model.objects.filter(
+            code=code,
+            value=value,
+            entity__entity_class=cls.entity_class,
+            deleted=False
+        )
+
+        entity_ids = attr_qs.values_list("entity", flat=True).distinct()
+        return cls.objects.filter(pk__in=entity_ids)
 
     @classmethod
     def search_related_to(cls, other: object, via: str = None) -> QuerySet:
         """
         Search related objects.
 
-        Find all objects associated with the passed object
-        (via optional link code).
+        Find all objects of this class that are related to the given object
+        via attribute-based relations (is_relation=True).
+
+        :param other: The target entity being referenced.
+        :param via: Optional code of the link-attribute.
+        :return: QuerySet of related entities (instances of cls).
         """
-        pass
+        attr_qs = cls.attributes.model.objects.filter(
+            is_relation=True,
+            destination=other,
+            entity__entity_class=cls.entity_class,
+            deleted=False
+        )
+
+        if via:
+            attr_qs = attr_qs.filter(code=via)
+
+        entity_ids = attr_qs.values_list("entity", flat=True).distinct()
+
+        return cls.objects.filter(pk__in=entity_ids)
 
     @classmethod
     def get_by_uuid(cls, uuid: str) -> object:
@@ -347,8 +426,7 @@ class AbstractEntityModel(models.Model):
                 if not dest:
                     continue
                 if allowed_entity_types:
-                    type_id = getattr(dest.entity_class,
-                                      'uuid', dest.entity_class)
+                    type_id = dest.entity_class.uuid
                     if type_id not in allowed_entity_types:
                         continue
                 if dest.pk not in visited:
@@ -356,5 +434,31 @@ class AbstractEntityModel(models.Model):
 
         return paths if mode == 'all' else None
 
+    # == 6. Migrations ==
+
+    def add_attribute(self, schema):
+        """Add attribute to self."""
+        with self.atrubutes.model as model:
+            options = {
+                "entity": self,
+                "title": schema.title,
+                "code": schema.name,
+                "schema": schema,
+                "is_multiple": schema.get("many", False),
+                "is_relation": schema.get("type") == "link",
+            }
+            attribute = model.objects.create(**options)
+            default = schema.get("default", None)
+            if default:
+                attribute.set_value(default)
+
+    def update_attribute(self, schema):
+        """Update attribute."""
+        # TODO: update attributes according to schema changes
+        pass
+
+    def remove_attribute(self, schema):
+        """Remove attributes."""
+        self.attributes.filter(code=schema.name, deleted=False).update(deleted=True)  # noqa: D501
 
 # The End

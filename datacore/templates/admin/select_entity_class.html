@@ -1,0 +1,8 @@
+<form method="get" action="">
+  <select name="entity_class">
+    {% for cls in entity_classes %}
+      <option value="{{ cls.pk }}">{{ cls }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="default">Перейти</button>
+</form>

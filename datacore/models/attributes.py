@@ -61,6 +61,7 @@ class AbstractAttributeModel(models.Model):
     is_relation = models.BooleanField(
         default=False,
         verbose_name=_('is a link'),
+        db_index=True,
         help_text=_(
             'If True, values are treated as references to another entity.')
     )
@@ -73,12 +74,17 @@ class AbstractAttributeModel(models.Model):
         help_text=_('If True, values are stored with timestamps and ordered chronologically.')  # noqa: D501
     )
 
+    deleted = models.BooleanField(default=False, db_index=True)
+
     class Meta:
         """Meta options for abstract attribute model."""
 
         abstract = True
         ordering = ["title"]
         unique_together = [["entity", "code"]]
+        indexes = [
+            models.Index(fields=["entity", "id"]),
+        ]
 
     def __str__(self):
         """Return a readable representation of the attribute."""
@@ -167,7 +173,7 @@ class AbstractAttributeModel(models.Model):
         return data
 
     def get_schema(self):
-        """Return marshmellow schema."""
+        """Return marshmallow schema."""
         return self.schema.get_schema()
 
     def set_value(self, value: any) -> None:
@@ -180,8 +186,9 @@ class AbstractAttributeModel(models.Model):
         - time series values: list of (value, timestamp) tuples
         """
         value_model = self.values.model
-        values_qs = value_model.objects.filter(
-            entity=self.entity).order_by("-timestamp")
+        values_qs = value_model.objects.\
+            filter(entity=self.entity, deleted=False)\
+            .order_by("-timestamp")
         default = self.schema.get_defaults()
         created = False
 
@@ -215,12 +222,17 @@ class AbstractAttributeModel(models.Model):
 
         return obj, created
 
+    def delete(self):
+        """Lazzy delete instance."""
+        self.deleted = True
+        self.save()
+
     def save(self, *args, **kwargs):
         """Save instance."""
         if self.is_relation and self.destination is None:
             raise AttributeError(
                 "The `destination` field must be specified for link-attributes."
             )
-        super().save()
+        super().save(*args, **kwargs)
 
 # The End

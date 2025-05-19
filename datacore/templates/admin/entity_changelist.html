@@ -1,0 +1,36 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+  <div class="module" id="class-selector">
+    <h2>
+      {{ entity_class_name }}
+    </h2>
+    <div class="entity-class-selector">
+        <label for="id_entity_class">
+          {{ entity_class_label }}
+        </label>
+  
+        <select id="id_entity_class" class="vSmallText">
+          <option value="">———————</option>
+          {% for cls in entity_class_choices %}
+            <option value="{{ cls.pk }}" {% if cls.pk|stringformat:"s" == request.GET.class_id %}selected{% endif %}>
+              {{ cls }}
+            </option>
+          {% endfor %}
+        </select>
+
+    </div>
+  </div>  
+
+  {{ block.super }}
+  
+  <script>
+    document.getElementById("id_entity_class").addEventListener("change", function () {
+      const val = this.value;
+      const url = new URL(window.location.href);
+      url.searchParams.set("class_id", val);
+      window.location.href = url.toString();
+    });
+  </script>
+{% endblock %}
+
