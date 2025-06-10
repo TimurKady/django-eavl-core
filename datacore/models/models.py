@@ -202,7 +202,7 @@ class AbstractEntityClassModel(TreeNodeModel):
 
         # Add attributes to entity
         for schema in self.get_attributes_schemas():
-            entity.addadd_attribute(schema)
+            entity.add_attribute(schema)
         return entity
 
     def get_attributes_schemas(self):
