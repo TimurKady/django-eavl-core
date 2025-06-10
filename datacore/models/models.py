@@ -221,7 +221,7 @@ class AbstractEntityClassModel(TreeNodeModel):
         - for attributes that match by code, FK is updated
         - for those that are missing in the new schema, make delete
         """
-        entities_list = list[self.entities.all()]
+        entities_list = list(self.entities.all())
         for entity in entities_list:
             all_names = added + removed + updated
             for schema in self.schemas.filter(name__in=all_names):
