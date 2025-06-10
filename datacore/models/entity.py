@@ -193,7 +193,7 @@ class AbstractEntityModel(models.Model):
         """Get a list of entities referenced by this object."""
         queryset = self.attributes.model.objects\
             .filter(entity=self, is_relation=True, deleted=False)
-        return queryset.value_list("destination", flat=True)
+        return list(queryset.values_list("destination", flat=True))
 
     def get_incoming_links(self, code: str = None) -> list:
         """Return a list of entities that reference this object."""
