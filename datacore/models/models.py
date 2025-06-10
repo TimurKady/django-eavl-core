@@ -209,7 +209,7 @@ class AbstractEntityClassModel(TreeNodeModel):
         ancestors = reversed(self.get_ancestors(include_self=True))
         schemas = set()
         for node in ancestors:
-            schemas.add(node.schemas.all())
+            schemas.update(node.schemas.all())
         return list(schemas)
 
     def make_migrations(self, added=None, removed=None, updated=None):
