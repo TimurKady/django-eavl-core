@@ -151,7 +151,6 @@ containing only letters, numbers, underscores or hyphens"),
     def get_defaults(self):
         """Return defaults values."""
         return self.schema.get("default", None)
-        super().delete
 
     def delete(self):
         """Delete schema instance."""
