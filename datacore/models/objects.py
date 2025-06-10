@@ -64,6 +64,11 @@ class WrapObject:
         nested objects.
         """
         for key in dictionary:
+            if not isinstance(key, str) or not key.isidentifier():
+                raise ValueError(
+                    f"Invalid attribute name: {key!r}. "
+                    "Only valid Python identifiers are allowed."
+                )
             value = dictionary[key]
             if isinstance(value, dict):
                 setattr(self, key, SubObject(value, self.entity))
