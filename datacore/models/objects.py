@@ -42,7 +42,7 @@ class WrapObject:
             if not entity_class:
                 raise ValueError("Cannot determine model: entity_class is not provided.")  # noqa: D501
             try:
-                model = entity_class.entities.model
+                entity_class.entities.model  # trigger AttributeError if relation is missing
             except AttributeError:
                 raise ValueError("Cannot determine model: entity_class must have reverse relation to entities.")  # noqa: D501
 
@@ -51,7 +51,7 @@ class WrapObject:
                 "parent": parent,
                 "title": title,
             }
-            entity = model.create_entity(**kwards)
+            entity = entity_class.create_entity(**kwards)
         self.entity = entity
         loaded = self.entity.get_data()
         self.dict_to_attributes(loaded)
