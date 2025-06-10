@@ -39,7 +39,9 @@ class AbstractAttributeModel(models.Model):
         blank=False,
         db_index=True,
         verbose_name=_('code'),
-        help_text=_('Internal code/name of the attribute'),
+        help_text=_('Internal code/name of the attribute. ' \
+           'Allowed characters: letters, digits, underscores and ' \
+           'hyphens; must start with a letter or underscore.'),
     )
 
     schema = models.ForeignKey(
