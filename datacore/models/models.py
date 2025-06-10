@@ -59,7 +59,6 @@ class AbstractEntityClassModel(TreeNodeModel):
     schemas = models.ManyToManyField(
         eavl_schemas,
         blank=True,
-        null=True,
         related_name="classes",
         verbose_name="Avable attributes"
     )
