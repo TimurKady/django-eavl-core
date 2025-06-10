@@ -182,9 +182,33 @@ class AbstractEntityModel(models.Model):
         Safely delete an object and all associated attributes and their values,
         with dependency checking.
         """
-        # TODO: check incoming links
-        # TODO: delete associated ValueModel records
-        # TODO: recursively destroy descendants?
+        # Check for entities that reference this one
+        incoming = self.get_incoming_links()
+        if incoming:
+            if not force:
+                raise Exception(
+                    "Cannot delete entity with incoming links."  # noqa: E501
+                )
+
+            # Mark relation attributes pointing to this entity as deleted
+            attrs = self.attributes.model.objects.filter(
+                is_relation=True,
+                destination=self,
+                deleted=False,
+            )
+            for attr in attrs:
+                attr.values.all().delete()
+                attr.destination = None
+                attr.delete()
+
+        # Remove all values for own attributes
+        for attr in self.attributes.all():
+            attr.values.all().delete()
+
+        # Recursively destroy descendants linked from this entity
+        for dest in self.get_outgoing_links():
+            if dest:
+                dest.destroy_wrap(force=True)
         self.delete()
 
     # == 4. Methods of working with links ==
