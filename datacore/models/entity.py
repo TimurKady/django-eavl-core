@@ -438,19 +438,19 @@ class AbstractEntityModel(models.Model):
 
     def add_attribute(self, schema):
         """Add attribute to self."""
-        with self.atrubutes.model as model:
-            options = {
-                "entity": self,
-                "title": schema.title,
-                "code": schema.name,
-                "schema": schema,
-                "is_multiple": schema.get("many", False),
-                "is_relation": schema.get("type") == "link",
-            }
-            attribute = model.objects.create(**options)
-            default = schema.get("default", None)
-            if default:
-                attribute.set_value(default)
+        model = self.attributes.model
+        options = {
+            "entity": self,
+            "title": schema.title,
+            "code": schema.name,
+            "schema": schema,
+            "is_multiple": schema.get("many", False),
+            "is_relation": schema.get("type") == "link",
+        }
+        attribute = model.objects.create(**options)
+        default = schema.get("default", None)
+        if default:
+            attribute.set_value(default)
 
     def update_attribute(self, schema):
         """Update attribute."""
