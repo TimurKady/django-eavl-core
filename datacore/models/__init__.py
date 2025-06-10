@@ -6,5 +6,5 @@ from .objects import WrapObject
 
 __all__ = [
     'AbstractEntityClassModel', 'AbstractEntityModel', 'AbstractAttributeModel',
-    'AbstractValueModel', 'ModelObject',
+    'AbstractValueModel', 'WrapObject',
 ]
