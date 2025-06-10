@@ -199,13 +199,16 @@ class AbstractAttributeModel(models.Model):
             objs = []
             for item in value:
                 val, ts = item
-                if ts and ts < datetime.now():
-                    objs.append(value_model(
-                        value=val if val is not None else default,
-                        entity=self.entity,
-                        attribute=self,
-                        timestamp=ts
-                    ))
+                if not isinstance(ts, datetime):
+                    raise ValueError(
+                        "Each time series value must include a valid datetime timestamp"
+                    )
+                objs.append(value_model(
+                    value=val if val is not None else default,
+                    entity=self.entity,
+                    attribute=self,
+                    timestamp=ts
+                ))
             if objs:
                 return value_model.objects.bulk_create(objs, batch_size=2000)
 
