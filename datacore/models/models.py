@@ -284,6 +284,6 @@ class AbstractEntityClassModel(TreeNodeModel):
     @classmethod
     def clean_db(cls):
         """Clean DB from deleted attributes and values."""
-        cls.attr_model.filter(deleted=True).delete()
+        cls.attr_model.objects.filter(deleted=True).delete()
 
 # The End
