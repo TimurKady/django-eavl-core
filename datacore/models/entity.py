@@ -478,8 +478,49 @@ class AbstractEntityModel(models.Model):
 
     def update_attribute(self, schema):
         """Update attribute."""
-        # TODO: update attributes according to schema changes
-        pass
+        attribute = self.attributes.filter(code=schema.name, deleted=False).first()
+        if not attribute:
+            return
+
+        old_schema = attribute.schema
+
+        attribute.schema = schema
+        attribute.title = schema.title
+        attribute.is_multiple = getattr(schema, "is_multiple", False)
+        attribute.is_relation = bool(getattr(schema, "schema", {}).get("type") == "link")
+
+        if old_schema.field_type != schema.field_type:
+            for value_obj in attribute.values.all():
+                new_val = self._convert_value(value_obj.value, schema.field_type)
+                value_obj.value = new_val
+                value_obj.save(update_fields=["value"])
+
+        attribute.save()
+
+    @staticmethod
+    def _convert_value(value, field_type):
+        """Attempt to cast value according to field type."""
+        from .schemas import MarshmallowField
+
+        type_name = MarshmallowField.get_field_name(field_type)
+
+        try:
+            if value is None:
+                return None
+            if type_name in ("int", "integer"):
+                return int(value)
+            if type_name == "float":
+                return float(value)
+            if type_name == "string":
+                return str(value)
+            if type_name == "boolean":
+                if isinstance(value, str):
+                    return value.lower() in ("1", "true", "yes")
+                return bool(value)
+        except (ValueError, TypeError):
+            return None
+
+        return value
 
     def remove_attribute(self, schema):
         """Remove attributes."""
