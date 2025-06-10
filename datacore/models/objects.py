@@ -105,6 +105,8 @@ class WrapObject:
         """
         result = {}
         for key, value in vars(self).items():
+            if key == "entity":
+                continue
             if isinstance(value, SubObject):
                 result[key] = value.to_dict()
             elif isinstance(value, list):
