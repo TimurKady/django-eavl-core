@@ -339,15 +339,16 @@ class AbstractEntityModel(models.Model):
         :return: QuerySet of matching entities.
         """
         attr_model = cls.attributes.model
+        value_model = attr_model.values.model
 
-        attr_qs = attr_model.objects.filter(
-            code=code,
+        value_qs = value_model.objects.filter(
+            attribute__code=code,
             value=value,
-            entity__entity_class=cls.entity_class,
-            deleted=False
+            attribute__entity__entity_class=cls.entity_class,
+            attribute__deleted=False,
         )
 
-        entity_ids = attr_qs.values_list("entity", flat=True).distinct()
+        entity_ids = value_qs.values_list("entity", flat=True).distinct()
         return cls.objects.filter(pk__in=entity_ids)
 
     @classmethod
