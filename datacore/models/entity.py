@@ -86,13 +86,19 @@ class AbstractEntityModel(models.Model):
         properties = []
         links = []
 
-        for node in reversed(self.get_ancestors(include_self=True)):
-            props_list = node.attributes.filter(is_relation=False, deleted=False)  # noqa: D501
+        ancestors = self.entity_class.get_ancestors(include_self=True)
+        for node in reversed(ancestors):
+            schemas = node.schemas.all()
+            props_list = self.attributes.filter(
+                schema__in=schemas, is_relation=False, deleted=False
+            )
             for prop in props_list:
                 properties.append(prop.to_dict(include_values))
 
             if include_links:
-                links_list = node.attributes.filter(is_relation=True, deleted=False)  # noqa: D501
+                links_list = self.attributes.filter(
+                    schema__in=schemas, is_relation=True, deleted=False
+                )
 
                 for link in links_list:
                     links.append(link.to_dict(include_values))
