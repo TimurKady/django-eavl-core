@@ -16,12 +16,15 @@ Email: timurkady@yandex.com
 
 
 import requests
+import logging
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.translation import gettext_lazy as _
 from functools import lru_cache
 from marshmallow import Schema, fields as mf
+
+logger = logging.getLogger(__name__)
 
 
 class MarshmallowField(models.PositiveSmallIntegerField):
@@ -140,7 +143,18 @@ containing only letters, numbers, underscores or hyphens"),
         schema_dict = self.schema
         if "$ref" in schema_dict:
             url = schema_dict["$ref"]
-            schema_dict = requests.get(url).json()
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                schema_dict = response.json()
+            except requests.RequestException as exc:
+                logger.warning(
+                    "Failed to load external schema from %s: %s", url, exc
+                )
+                raise ValidationError(
+                    _("Unable to fetch referenced schema: %(url)s"),
+                    params={"url": url},
+                ) from exc
 
         return Schema.from_dict(schema_dict)
 
