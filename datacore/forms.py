@@ -30,34 +30,34 @@ class DynamicEntityForm(forms.ModelForm):
             )
 
         for attr in entity_class.attributes.all():
-            schema = attr.schema.get_schema()
+            schema = attr.schema.to_dict()
             field_type = schema.get("type")
-            self.fields[attr.name] = self._build_field(
-                attr.name, field_type, schema)
+            self.fields[attr.code] = self._build_field(
+                attr.code, field_type, schema)
 
     def _build_field(self, name, field_type, schema):
-        """Buld field."""
+        """Build field."""
         if field_type == "string":
             return forms.CharField(
-                label=schema.title,
+                label=schema.get("title"),
                 required=False,
                 initial=schema.get("default")
             )
         elif field_type == "integer":
             return forms.IntegerField(
-                label=schema.title,
+                label=schema.get("title"),
                 required=False,
                 initial=schema.get("default")
             )
         elif field_type == "boolean":
             return forms.BooleanField(
-                label=schema.title,
+                label=schema.get("title"),
                 required=False,
                 initial=schema.get("default")
             )
         elif field_type == "array":
             return forms.CharField(
-                label=schema.title,
+                label=schema.get("title"),
                 required=False,
                 help_text="Comma-separated list"
             )
