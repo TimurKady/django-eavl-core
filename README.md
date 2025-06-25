@@ -28,6 +28,60 @@ EAVL (Entity-Attribute-Value-Link) is a data organization methodology that allow
 
 - **Efficiency**: EAVL can be an efficient way to store data when queries are properly designed.
 
+## Quick Start: django-eavl-core
+
+The project can use the [django-eavl-core](https://github.com/TimurKady/django-eavl-core)
+package to store entities with flexible attributes.
+
+1. Install the package (if it is not already included):
+
+   ```bash
+   pip install git+https://github.com/TimurKady/django-eavl-core.git
+   ```
+
+2. Register the app in `config/settings/base.py`:
+
+   ```python
+   INSTALLED_APPS = [
+       ...,
+       'datacore',
+   ]
+   ```
+
+3. Define your entity classes by subclassing `AbstractEntityClassModel`:
+
+   ```python
+   # apps/cars/models.py
+   from datacore.models import AbstractEntityClassModel
+
+   class Car(AbstractEntityClassModel):
+       class Meta:
+           verbose_name = 'car'
+           verbose_name_plural = 'cars'
+   ```
+
+   When this class is imported, `django-eavl-core` automatically generates
+   models for the car entity, its attributes and values.
+
+4. Make and apply migrations:
+
+   ```bash
+   python manage.py makemigrations
+   python manage.py migrate
+   ```
+
+5. Use the API to work with entities:
+
+   ```python
+   from apps.cars.models import Car
+
+   car = Car.objects.create(title='Model X')
+   car.set_data(color='red', mileage=5000)
+   print(car.get_data())  # {'color': 'red', 'mileage': 5000}
+   ```
+
+
+
 ## Limitations of EAVL
 
 - **Query Complexity**: Retrieving data from the EAVL structure may require more complex queries and can complicate the data analysis process.
